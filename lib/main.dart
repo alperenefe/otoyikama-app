@@ -9,6 +9,8 @@ import 'pages/edit_customer_page.dart';
 import 'pages/prices_page.dart';
 import 'pages/reports_page.dart';
 import 'pages/search_page.dart';
+import 'pages/home_tabs_page.dart';
+import 'pages/customization_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -60,21 +62,28 @@ class _MainScreenState extends State<MainScreen> {
     });
   }
 
+  void _updateSelectedDate(DateTime newDate) {
+    setState(() {
+      _selectedDate = newDate;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: IndexedStack(
         index: _currentIndex,
         children: [
-          HomePage(
+          HomeTabsPage(
             selectedDate: _selectedDate,
-            onCustomerAdded: _refreshReportsPage,
+            onDataChanged: _refreshReportsPage,
+            onDateChanged: _updateSelectedDate,
           ),
           SearchPage(
             key: ValueKey(_searchPageKey),
           ),
           ReportsPage(key: ValueKey(_reportsPageKey)),
-          const PricesPage(),
+          const CustomizationPage(),
         ],
       ),
       bottomNavigationBar: BottomNavigationBar(
@@ -103,8 +112,8 @@ class _MainScreenState extends State<MainScreen> {
             label: 'Raporlar',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.attach_money),
-            label: 'Fiyatlar',
+            icon: Icon(Icons.settings),
+            label: 'Özelleştirme',
           ),
         ],
       ),

@@ -103,8 +103,17 @@ class _SearchPageState extends State<SearchPage> {
             .replaceAll('ö', 'o')
             .replaceAll('ç', 'c');
         
+        final normalizedPhone = customer.phone.toLowerCase()
+            .replaceAll('ı', 'i')
+            .replaceAll('ğ', 'g')
+            .replaceAll('ü', 'u')
+            .replaceAll('ş', 's')
+            .replaceAll('ö', 'o')
+            .replaceAll('ç', 'c');
+        
         return normalizedName.contains(normalizedQuery) || 
-               normalizedPlate.contains(normalizedQuery);
+               normalizedPlate.contains(normalizedQuery) ||
+               normalizedPhone.contains(normalizedQuery);
       }).toList();
     }
     
@@ -167,10 +176,10 @@ class _SearchPageState extends State<SearchPage> {
             padding: const EdgeInsets.all(16.0),
             child: TextField(
               decoration: const InputDecoration(
-                labelText: 'Servis Kaydı Ara (Ad veya Plaka)',
+                labelText: 'Servis Kaydı Ara (Ad, Plaka veya Telefon)',
                 prefixIcon: Icon(Icons.search),
                 border: OutlineInputBorder(),
-                hintText: 'Müşteri adı veya plaka girin...',
+                hintText: 'Müşteri adı, plaka veya telefon girin...',
               ),
               onChanged: _filterCustomers,
             ),
@@ -259,24 +268,34 @@ class _SearchPageState extends State<SearchPage> {
                                       ),
                                     ],
                                   ),
-                                  trailing: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                  trailing: Row(
+                                    mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Text(
-                                        '${customer.price.toStringAsFixed(2)} ₺',
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.green,
-                                          fontSize: 16,
-                                        ),
+                                      Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        crossAxisAlignment: CrossAxisAlignment.end,
+                                        children: [
+                                          Text(
+                                            '${customer.price.toStringAsFixed(2)} ₺',
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.green,
+                                              fontSize: 16,
+                                            ),
+                                          ),
+                                          Text(
+                                            DateFormat('HH:mm').format(customer.timestamp),
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey,
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                      Text(
-                                        DateFormat('HH:mm').format(customer.timestamp),
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.grey,
-                                        ),
+                                      IconButton(
+                                        icon: const Icon(Icons.phone, color: Colors.green),
+                                        onPressed: () => _callPhoneNumber(customer.phone),
+                                        tooltip: 'Ara',
                                       ),
                                     ],
                                   ),

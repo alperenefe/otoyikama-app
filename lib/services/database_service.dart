@@ -1,6 +1,8 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../models/customer.dart';
+import '../models/expense.dart';
+import '../models/expense_category.dart';
 
 class DatabaseService {
   static Database? _database;
@@ -26,7 +28,7 @@ class DatabaseService {
     String path = join(await getDatabasesPath(), 'otoyikama.db');
     return await openDatabase(
       path,
-      version: 5, // Versiyonu 5'e çıkardık
+      version: 6,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -55,6 +57,27 @@ class DatabaseService {
         serviceType TEXT NOT NULL,
         price REAL NOT NULL,
         UNIQUE(vehicleType, serviceType)
+      )
+    ''');
+
+    // Gider kategorileri tablosu
+    await db.execute('''
+      CREATE TABLE expense_categories (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE,
+        description TEXT,
+        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    ''');
+
+    // Giderler tablosu
+    await db.execute('''
+      CREATE TABLE expenses (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        category TEXT NOT NULL,
+        description TEXT NOT NULL,
+        amount REAL NOT NULL,
+        date DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     ''');
 
@@ -89,81 +112,53 @@ class DatabaseService {
       'serviceType': 'İç + Dış Yıkama',
       'price': 100.0
     });
+
+    // Varsayılan gider kategorisi ekle
+    await db.insert('expense_categories', {
+      'name': 'Yemek',
+      'description': 'Günlük yemek giderleri',
+      'createdAt': DateTime.now().toIso8601String(),
+    });
   }
 
   static Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     print('🔄 Database upgrade: $oldVersion -> $newVersion');
     
-    if (oldVersion < 5) {
-      // Versiyon 5 için tüm tabloları yeniden oluştur
+    if (oldVersion < 6) {
       try {
-        print('🗑️ Eski tablolar siliniyor...');
-        // Tüm tabloları sil
-        await db.execute('DROP TABLE IF EXISTS customers');
-        await db.execute('DROP TABLE IF EXISTS prices');
+        print('📋 Yeni tablolar ekleniyor...');
         
-        print('📋 Yeni tablolar oluşturuluyor...');
-        // Yeni tabloları oluştur
+        // Gider kategorileri tablosu
         await db.execute('''
-          CREATE TABLE customers (
+          CREATE TABLE IF NOT EXISTS expense_categories (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            plate TEXT NOT NULL,
-            phone TEXT NOT NULL,
-            serviceType TEXT NOT NULL,
-            vehicleType TEXT NOT NULL,
-            price REAL NOT NULL,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+            name TEXT NOT NULL UNIQUE,
+            description TEXT,
+            createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
           )
         ''');
-        
+
+        // Giderler tablosu
         await db.execute('''
-          CREATE TABLE prices (
+          CREATE TABLE IF NOT EXISTS expenses (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            vehicleType TEXT NOT NULL,
-            serviceType TEXT NOT NULL,
-            price REAL NOT NULL,
-            UNIQUE(vehicleType, serviceType)
+            category TEXT NOT NULL,
+            description TEXT NOT NULL,
+            amount REAL NOT NULL,
+            date DATETIME DEFAULT CURRENT_TIMESTAMP
           )
         ''');
-        
-        print('💰 Varsayılan fiyatlar ekleniyor...');
-        // Varsayılan fiyatları ekle
-        await db.insert('prices', {
-          'vehicleType': 'Normal',
-          'serviceType': 'İç Yıkama',
-          'price': 50.0
+
+        // Varsayılan gider kategorisi ekle
+        await db.insert('expense_categories', {
+          'name': 'Yemek',
+          'description': 'Günlük yemek giderleri',
+          'createdAt': DateTime.now().toIso8601String(),
         });
-        await db.insert('prices', {
-          'vehicleType': 'Normal',
-          'serviceType': 'Dış Yıkama',
-          'price': 30.0
-        });
-        await db.insert('prices', {
-          'vehicleType': 'Normal',
-          'serviceType': 'İç + Dış Yıkama',
-          'price': 70.0
-        });
-        await db.insert('prices', {
-          'vehicleType': 'SUV',
-          'serviceType': 'İç Yıkama',
-          'price': 70.0
-        });
-        await db.insert('prices', {
-          'vehicleType': 'SUV',
-          'serviceType': 'Dış Yıkama',
-          'price': 45.0
-        });
-        await db.insert('prices', {
-          'vehicleType': 'SUV',
-          'serviceType': 'İç + Dış Yıkama',
-          'price': 100.0
-        });
-        
-        print('✅ Database version 5 upgrade başarılı - Tüm tablolar yeniden oluşturuldu');
+
+        print('✅ Yeni tablolar başarıyla eklendi');
       } catch (e) {
-        print('❌ Versiyon 5 upgrade hatası: $e');
-        print('📚 Stack trace: ${StackTrace.current}');
+        print('❌ Database upgrade hatası: $e');
       }
     }
   }
@@ -235,6 +230,18 @@ class DatabaseService {
     return List.generate(maps.length, (i) => Customer.fromMap(maps[i]));
   }
 
+  static Future<List<Customer>> searchByPhone(String phone) async {
+    final db = await database;
+    final normalizedPhone = _normalizeText(phone);
+    final List<Map<String, dynamic>> maps = await db.query(
+      'customers',
+      where: 'REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(phone, "İ", "I"), "Ğ", "G"), "Ü", "U"), "Ş", "S"), "Ö", "O") LIKE ?',
+      whereArgs: ['%$normalizedPhone%'],
+      orderBy: 'timestamp DESC'
+    );
+    return List.generate(maps.length, (i) => Customer.fromMap(maps[i]));
+  }
+
   static Future<void> updateCustomer(Customer customer) async {
     final db = await database;
     await db.update(
@@ -256,98 +263,39 @@ class DatabaseService {
 
   // Fiyat işlemleri
   static Future<List<Map<String, dynamic>>> getAllPrices() async {
+    final db = await database;
     try {
-      print('🔍 getAllPrices başlatılıyor...');
-      final db = await database;
-      print('✅ Database bağlantısı başarılı');
-      
-      // Basit sorgu yap
-      final prices = await db.query('prices', orderBy: 'vehicleType, serviceType');
-      print('📊 ${prices.length} fiyat bulundu');
-      
-      if (prices.isEmpty) {
-        print('⚠️ Fiyatlar boş, varsayılan fiyatlar ekleniyor...');
-        await _insertDefaultPrices(db);
-        return await db.query('prices', orderBy: 'vehicleType, serviceType');
-      }
-      
-      return prices;
+      final List<Map<String, dynamic>> maps = await db.query('prices');
+      return maps;
     } catch (e) {
-      print('❌ getAllPrices hatası: $e');
-      print('📚 Stack trace: ${StackTrace.current}');
-      
-      // Hata durumunda varsayılan fiyatları döndür
-      return [
-        {'vehicleType': 'Normal', 'serviceType': 'İç Yıkama', 'price': 50.0},
-        {'vehicleType': 'Normal', 'serviceType': 'Dış Yıkama', 'price': 30.0},
-        {'vehicleType': 'Normal', 'serviceType': 'İç + Dış Yıkama', 'price': 70.0},
-        {'vehicleType': 'SUV', 'serviceType': 'İç Yıkama', 'price': 70.0},
-        {'vehicleType': 'SUV', 'serviceType': 'Dış Yıkama', 'price': 45.0},
-        {'vehicleType': 'SUV', 'serviceType': 'İç + Dış Yıkama', 'price': 100.0},
-      ];
+      // Eğer prices tablosu yoksa, varsayılan fiyatları oluştur ve tekrar dene
+      await _createDefaultPrices(db);
+      final List<Map<String, dynamic>> maps = await db.query('prices');
+      return maps;
     }
   }
 
   static Future<void> _createDefaultPrices(Database db) async {
-    // Fiyatlar tablosunu oluştur
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS prices (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        vehicleType TEXT NOT NULL,
-        serviceType TEXT NOT NULL,
-        price REAL NOT NULL,
-        UNIQUE(vehicleType, serviceType)
-      )
-    ''');
+    try {
+      // Prices tablosunu oluştur
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS prices (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          vehicleType TEXT NOT NULL,
+          serviceType TEXT NOT NULL,
+          price REAL NOT NULL,
+          UNIQUE(vehicleType, serviceType)
+        )
+      ''');
 
-    // Varsayılan fiyatları ekle
-    await db.insert('prices', {
-      'vehicleType': 'Normal',
-      'serviceType': 'İç Yıkama',
-      'price': 50.0
-    });
-    await db.insert('prices', {
-      'vehicleType': 'Normal',
-      'serviceType': 'Dış Yıkama',
-      'price': 30.0
-    });
-    await db.insert('prices', {
-      'vehicleType': 'Normal',
-      'serviceType': 'İç + Dış Yıkama',
-      'price': 70.0
-    });
-    await db.insert('prices', {
-      'vehicleType': 'SUV',
-      'serviceType': 'İç Yıkama',
-      'price': 70.0
-    });
-    await db.insert('prices', {
-      'vehicleType': 'SUV',
-      'serviceType': 'Dış Yıkama',
-      'price': 45.0
-    });
-    await db.insert('prices', {
-      'vehicleType': 'SUV',
-      'serviceType': 'İç + Dış Yıkama',
-      'price': 100.0
-    });
+      // Varsayılan fiyatları ekle
+      await _insertDefaultPrices(db);
+    } catch (e) {
+      print('❌ Varsayılan fiyatlar oluşturulurken hata: $e');
+    }
   }
 
   static Future<void> _insertDefaultPrices(Database db) async {
-    print('💰 Varsayılan fiyatlar ekleniyor...');
-    
-    // Önce tabloyu oluştur
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS prices (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        vehicleType TEXT NOT NULL,
-        serviceType TEXT NOT NULL,
-        price REAL NOT NULL,
-        UNIQUE(vehicleType, serviceType)
-      )
-    ''');
-
-    // Varsayılan fiyatları ekle
     await db.insert('prices', {
       'vehicleType': 'Normal',
       'serviceType': 'İç Yıkama',
@@ -378,8 +326,6 @@ class DatabaseService {
       'serviceType': 'İç + Dış Yıkama',
       'price': 100.0
     });
-    
-    print('✅ Varsayılan fiyatlar eklendi');
   }
 
   static Future<double?> getPrice(String vehicleType, String serviceType) async {
@@ -421,27 +367,149 @@ class DatabaseService {
     );
   }
 
-  // Rapor işlemleri
+  // Gider kategorileri işlemleri
+  static Future<List<ExpenseCategory>> getExpenseCategories() async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query('expense_categories', orderBy: 'name');
+    return List.generate(maps.length, (i) => ExpenseCategory.fromMap(maps[i]));
+  }
+
+  static Future<ExpenseCategory> addExpenseCategory(String name, String? description) async {
+    final db = await database;
+    final id = await db.insert('expense_categories', {
+      'name': name,
+      'description': description,
+      'createdAt': DateTime.now().toIso8601String(),
+    });
+    return ExpenseCategory(
+      id: id,
+      name: name,
+      description: description,
+      createdAt: DateTime.now(),
+    );
+  }
+
+  static Future<void> updateExpenseCategory(int id, String name, String? description) async {
+    final db = await database;
+    await db.update(
+      'expense_categories',
+      {
+        'name': name,
+        'description': description,
+      },
+      where: 'id = ?',
+      whereArgs: [id]
+    );
+  }
+
+  static Future<void> deleteExpenseCategory(int id) async {
+    final db = await database;
+    await db.delete(
+      'expense_categories',
+      where: 'id = ?',
+      whereArgs: [id]
+    );
+  }
+
+  // Gider işlemleri
+  static Future<List<Expense>> getExpensesByDate(DateTime date) async {
+    final db = await database;
+    final startOfDay = DateTime(date.year, date.month, date.day);
+    final endOfDay = startOfDay.add(const Duration(days: 1));
+    
+    final List<Map<String, dynamic>> maps = await db.query(
+      'expenses',
+      where: 'date >= ? AND date < ?',
+      whereArgs: [startOfDay.toIso8601String(), endOfDay.toIso8601String()],
+      orderBy: 'date DESC'
+    );
+    return List.generate(maps.length, (i) => Expense.fromMap(maps[i]));
+  }
+
+  static Future<List<Expense>> getExpensesByDateRange(DateTime startDate, DateTime endDate) async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'expenses',
+      where: 'date >= ? AND date <= ?',
+      whereArgs: [startDate.toIso8601String(), endDate.toIso8601String()],
+      orderBy: 'date DESC'
+    );
+    return List.generate(maps.length, (i) => Expense.fromMap(maps[i]));
+  }
+
+  static Future<Expense> addExpense(String category, String description, double amount, DateTime date) async {
+    final db = await database;
+    final id = await db.insert('expenses', {
+      'category': category,
+      'description': description,
+      'amount': amount,
+      'date': date.toIso8601String(),
+    });
+    return Expense(
+      id: id,
+      category: category,
+      description: description,
+      amount: amount,
+      date: date,
+    );
+  }
+
+  static Future<void> updateExpense(int id, String category, String description, double amount, DateTime date) async {
+    final db = await database;
+    await db.update(
+      'expenses',
+      {
+        'category': category,
+        'description': description,
+        'amount': amount,
+        'date': date.toIso8601String(),
+      },
+      where: 'id = ?',
+      whereArgs: [id]
+    );
+  }
+
+  static Future<void> deleteExpense(int id) async {
+    final db = await database;
+    await db.delete(
+      'expenses',
+      where: 'id = ?',
+      whereArgs: [id]
+    );
+  }
+
+  // Güncellenmiş rapor işlemleri
   static Future<Map<String, dynamic>> getReport(DateTime startDate, DateTime endDate) async {
     final customers = await getCustomersByDateRange(startDate, endDate);
+    final expenses = await getExpensesByDateRange(startDate, endDate);
     
     double totalEarnings = 0;
+    double totalExpenses = 0;
     Map<String, int> serviceCounts = {};
     Map<String, int> vehicleCounts = {};
+    Map<String, double> expenseByCategory = {};
     
     for (var customer in customers) {
       totalEarnings += customer.price;
-      
       serviceCounts[customer.serviceType] = (serviceCounts[customer.serviceType] ?? 0) + 1;
       vehicleCounts[customer.vehicleType] = (vehicleCounts[customer.vehicleType] ?? 0) + 1;
+    }
+    
+    for (var expense in expenses) {
+      totalExpenses += expense.amount;
+      expenseByCategory[expense.category] = (expenseByCategory[expense.category] ?? 0) + expense.amount;
     }
     
     return {
       'totalCustomers': customers.length,
       'totalEarnings': totalEarnings,
+      'totalExpenses': totalExpenses,
+      'netProfit': totalEarnings - totalExpenses,
       'serviceCounts': serviceCounts,
       'vehicleCounts': vehicleCounts,
+      'expenseByCategory': expenseByCategory,
       'customers': customers,
+      'expenses': expenses,
     };
   }
 

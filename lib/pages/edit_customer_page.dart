@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import '../models/customer.dart';
 import '../services/database_service.dart';
 
@@ -14,330 +15,43 @@ class EditCustomerPage extends StatefulWidget {
 
 class _EditCustomerPageState extends State<EditCustomerPage> {
   final _formKey = GlobalKey<FormState>();
-  late final TextEditingController _nameController;
-  late final TextEditingController _plateController;
-  late final TextEditingController _phoneController;
-  late final TextEditingController _priceController;
+  final _nameController = TextEditingController();
+  final _plateController = TextEditingController();
+  final _phoneController = TextEditingController();
   
-  late String _selectedServiceType;
-  late String _selectedVehicleType;
-  double _calculatedPrice = 0.0;
+  String _selectedVehicleType = '';
+  String _selectedServiceType = '';
+  double? _price;
   bool _isLoading = false;
-  bool _isManualPrice = false;
 
-  final List<String> _serviceTypes = [
-    'İç Yıkama',
-    'Dış Yıkama',
-    'İç + Dış Yıkama',
-  ];
-
-  final List<String> _vehicleTypes = [
-    'Normal',
-    'SUV',
-  ];
+  final List<String> _vehicleTypes = ['Normal', 'SUV'];
+  final List<String> _serviceTypes = ['İç Yıkama', 'Dış Yıkama', 'İç + Dış Yıkama'];
 
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController(text: widget.customer.name);
-    _plateController = TextEditingController(text: widget.customer.plate);
-    _phoneController = TextEditingController(text: widget.customer.phone);
-    _priceController = TextEditingController(text: widget.customer.price.toStringAsFixed(2));
-    _selectedServiceType = widget.customer.serviceType;
-    _selectedVehicleType = widget.customer.vehicleType;
-    _calculatedPrice = widget.customer.price;
-  }
-
-  Future<void> _calculatePrice() async {
-    if (_isManualPrice) return; // Manuel fiyat aktifse hesaplama yapma
-    
-    try {
-      final price = await DatabaseService.getPrice(_selectedVehicleType, _selectedServiceType);
-      setState(() {
-        _calculatedPrice = price ?? 0.0;
-        _priceController.text = _calculatedPrice.toStringAsFixed(2);
-      });
-    } catch (e) {
-      setState(() {
-        _calculatedPrice = 0.0;
-        _priceController.text = '0.00';
-      });
+    _nameController.text = widget.customer.name;
+    _plateController.text = widget.customer.plate;
+    _phoneController.text = widget.customer.phone;
+    // Araç tipini güvenli şekilde ayarla
+    if (_vehicleTypes.contains(widget.customer.vehicleType)) {
+      _selectedVehicleType = widget.customer.vehicleType;
+    } else {
+      // Eğer araç tipi listede yoksa varsayılan değeri kullan
+      _selectedVehicleType = 'Normal';
+      print('⚠️ Bilinmeyen araç tipi: ${widget.customer.vehicleType}');
     }
-  }
-
-  String _formatPlate(String plate) {
-    // Boşlukları kaldır ve büyük harfe çevir
-    String formatted = plate.replaceAll(' ', '').toUpperCase();
     
-    // Sadece harf, rakam ve Türk karakterleri kabul et
-    formatted = formatted.replaceAll(RegExp(r'[^A-Z0-9İĞÜŞÖÇ]'), '');
-    
-    return formatted;
-  }
-
-  Future<void> _updateCustomer() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      final manualPrice = double.tryParse(_priceController.text) ?? _calculatedPrice;
-      
-      final updatedCustomer = widget.customer.copyWith(
-        name: _nameController.text.trim(),
-        plate: _formatPlate(_plateController.text),
-        phone: _phoneController.text.trim(),
-        serviceType: _selectedServiceType,
-        vehicleType: _selectedVehicleType,
-        price: manualPrice,
-      );
-
-      await DatabaseService.updateCustomer(updatedCustomer);
-      
-      if (mounted) {
-        Navigator.pop(context, true);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Servis kaydı başarıyla güncellendi'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Hata: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+    // Servis tipini güvenli şekilde ayarla
+    if (_serviceTypes.contains(widget.customer.serviceType)) {
+      _selectedServiceType = widget.customer.serviceType;
+    } else {
+      // Eğer servis tipi listede yoksa varsayılan değeri kullan
+      _selectedServiceType = 'İç Yıkama';
+      print('⚠️ Bilinmeyen servis tipi: ${widget.customer.serviceType}');
     }
-  }
-
-  String _formatVehicleType(String vehicleType) {
-    return vehicleType == 'Normal' ? 'Normal Araç' : 'SUV Araç';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Servis Kaydını Düzenle'),
-        backgroundColor: Colors.blue,
-        foregroundColor: Colors.white,
-      ),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.all(16.0),
-          children: [
-            TextFormField(
-              controller: _nameController,
-              decoration: const InputDecoration(
-                labelText: 'Müşteri Adı',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.person),
-              ),
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Müşteri adı gerekli';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _plateController,
-              decoration: const InputDecoration(
-                labelText: 'Plaka',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.directions_car),
-                hintText: '34ABC123',
-              ),
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Plaka gerekli';
-                }
-                final formatted = _formatPlate(value);
-                if (formatted.length < 5) {
-                  return 'Geçerli bir plaka girin';
-                }
-                return null;
-              },
-              onChanged: (value) {
-                // Plaka formatını göster
-                final formatted = _formatPlate(value);
-                if (formatted != value.toUpperCase()) {
-                  _plateController.value = TextEditingValue(
-                    text: formatted,
-                    selection: TextSelection.collapsed(offset: formatted.length),
-                  );
-                }
-              },
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _phoneController,
-              decoration: const InputDecoration(
-                labelText: 'Telefon',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.phone),
-                hintText: '0555 123 45 67',
-              ),
-              keyboardType: TextInputType.phone,
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Telefon gerekli';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              value: _selectedVehicleType,
-              decoration: const InputDecoration(
-                labelText: 'Araç Tipi',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.category),
-              ),
-              items: _vehicleTypes.map((type) {
-                return DropdownMenuItem(
-                  value: type,
-                  child: Text(_formatVehicleType(type)),
-                );
-              }).toList(),
-              onChanged: (value) {
-                setState(() {
-                  _selectedVehicleType = value!;
-                  _isManualPrice = false; // Araç tipi değişince otomatik fiyat
-                });
-                _calculatePrice();
-              },
-            ),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              value: _selectedServiceType,
-              decoration: const InputDecoration(
-                labelText: 'Hizmet Tipi',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.local_car_wash),
-              ),
-              items: _serviceTypes.map((type) {
-                return DropdownMenuItem(
-                  value: type,
-                  child: Text(type),
-                );
-              }).toList(),
-              onChanged: (value) {
-                setState(() {
-                  _selectedServiceType = value!;
-                  _isManualPrice = false; // Hizmet tipi değişince otomatik fiyat
-                });
-                _calculatePrice();
-              },
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: TextFormField(
-                    controller: _priceController,
-                    decoration: const InputDecoration(
-                      labelText: 'Fiyat (₺)',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.attach_money),
-                    ),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    inputFormatters: [
-                      FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
-                    ],
-                    onChanged: (value) {
-                      setState(() {
-                        _isManualPrice = true; // Manuel fiyat girildi
-                      });
-                    },
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Fiyat gerekli';
-                      }
-                      final price = double.tryParse(value);
-                      if (price == null || price < 0) {
-                        return 'Geçerli bir fiyat girin';
-                      }
-                      return null;
-                    },
-                  ),
-                ),
-                const SizedBox(width: 8),
-                IconButton(
-                  onPressed: () {
-                    setState(() {
-                      _isManualPrice = false;
-                    });
-                    _calculatePrice();
-                  },
-                  icon: const Icon(Icons.refresh),
-                  tooltip: 'Otomatik Fiyat Hesapla',
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: _isManualPrice ? Colors.orange[50] : Colors.green[50],
-                border: Border.all(color: _isManualPrice ? Colors.orange : Colors.green),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    _isManualPrice ? Icons.edit : Icons.attach_money,
-                    color: _isManualPrice ? Colors.orange : Colors.green,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    _isManualPrice ? 'Manuel Fiyat' : 'Otomatik Fiyat',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: _isManualPrice ? Colors.orange : Colors.green,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                onPressed: _isLoading ? null : _updateCustomer,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  foregroundColor: Colors.white,
-                ),
-                child: _isLoading
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text(
-                        'Güncelle',
-                        style: TextStyle(fontSize: 16),
-                      ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+    
+    _price = widget.customer.price;
   }
 
   @override
@@ -345,7 +59,253 @@ class _EditCustomerPageState extends State<EditCustomerPage> {
     _nameController.dispose();
     _plateController.dispose();
     _phoneController.dispose();
-    _priceController.dispose();
     super.dispose();
+  }
+
+  Future<void> _updatePrice() async {
+    if (_selectedVehicleType.isEmpty || _selectedServiceType.isEmpty) return;
+    
+    try {
+      final price = await DatabaseService.getPrice(_selectedVehicleType, _selectedServiceType);
+      setState(() {
+        _price = price ?? 0.0;
+      });
+    } catch (e) {
+      // Hata durumunda mevcut fiyatı koru
+    }
+  }
+
+  void _showErrorSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+
+  void _showSuccessSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.green,
+      ),
+    );
+  }
+
+  Future<void> _saveCustomer() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final updatedCustomer = Customer(
+        id: widget.customer.id,
+        name: _nameController.text.trim(),
+        plate: _plateController.text.trim(),
+        phone: _phoneController.text.trim(),
+        serviceType: _selectedServiceType,
+        vehicleType: _selectedVehicleType,
+        price: _price ?? 0.0,
+        timestamp: widget.customer.timestamp,
+      );
+
+      await DatabaseService.updateCustomer(updatedCustomer);
+      
+      _showSuccessSnackBar('Servis kaydı başarıyla güncellendi');
+      Navigator.pop(context, true);
+    } catch (e) {
+      _showErrorSnackBar('Servis kaydı güncellenirken hata oluştu');
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Servis Kaydı Düzenle'),
+        backgroundColor: Colors.blue,
+        foregroundColor: Colors.white,
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(16.0),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Müşteri adı
+                    TextFormField(
+                      controller: _nameController,
+                      decoration: const InputDecoration(
+                        labelText: 'Müşteri Adı *',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.person),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Müşteri adı gereklidir';
+                        }
+                        return null;
+                      },
+                      textInputAction: TextInputAction.next,
+                    ),
+                    
+                    const SizedBox(height: 16),
+                    
+                    // Plaka
+                    TextFormField(
+                      controller: _plateController,
+                      decoration: const InputDecoration(
+                        labelText: 'Plaka *',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.directions_car),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Plaka gereklidir';
+                        }
+                        return null;
+                      },
+                      textInputAction: TextInputAction.next,
+                    ),
+                    
+                    const SizedBox(height: 16),
+                    
+                    // Telefon
+                    TextFormField(
+                      controller: _phoneController,
+                      decoration: const InputDecoration(
+                        labelText: 'Telefon *',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.phone),
+                      ),
+                      keyboardType: TextInputType.phone,
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Telefon gereklidir';
+                        }
+                        return null;
+                      },
+                      textInputAction: TextInputAction.next,
+                    ),
+                    
+                    const SizedBox(height: 16),
+                    
+                    // Araç tipi
+                    DropdownButtonFormField<String>(
+                      value: _selectedVehicleType.isNotEmpty ? _selectedVehicleType : null,
+                      decoration: const InputDecoration(
+                        labelText: 'Araç Tipi *',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.directions_car),
+                      ),
+                      items: _vehicleTypes.map((type) {
+                        return DropdownMenuItem<String>(
+                          value: type,
+                          child: Text(type),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedVehicleType = value ?? 'Normal';
+                        });
+                        _updatePrice();
+                      },
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Araç tipi seçin';
+                        }
+                        return null;
+                      },
+                    ),
+                    
+                    const SizedBox(height: 16),
+                    
+                    // Hizmet tipi
+                    DropdownButtonFormField<String>(
+                      value: _selectedServiceType.isNotEmpty ? _selectedServiceType : null,
+                      decoration: const InputDecoration(
+                        labelText: 'Hizmet Tipi *',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.local_car_wash),
+                      ),
+                      items: _serviceTypes.map((type) {
+                        return DropdownMenuItem<String>(
+                          value: type,
+                          child: Text(type),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedServiceType = value ?? 'İç Yıkama';
+                        });
+                        _updatePrice();
+                      },
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Hizmet tipi seçin';
+                        }
+                        return null;
+                      },
+                    ),
+                    
+                    const SizedBox(height: 16),
+                    
+                    // Fiyat
+                    TextFormField(
+                      initialValue: _price?.toStringAsFixed(2),
+                      decoration: const InputDecoration(
+                        labelText: 'Fiyat (₺) *',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.attach_money),
+                      ),
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+                      ],
+                      onChanged: (value) {
+                        _price = double.tryParse(value);
+                      },
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Fiyat gereklidir';
+                        }
+                        final price = double.tryParse(value);
+                        if (price == null || price <= 0) {
+                          return 'Geçerli bir fiyat girin';
+                        }
+                        return null;
+                      },
+                    ),
+                    
+                    const SizedBox(height: 32),
+                    
+                    // Güncelle butonu
+                    ElevatedButton(
+                      onPressed: _saveCustomer,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
+                      child: const Text(
+                        'Güncelle',
+                        style: TextStyle(fontSize: 18),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+    );
   }
 } 
