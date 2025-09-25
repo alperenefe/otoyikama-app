@@ -7,6 +7,7 @@ class Customer {
   final String vehicleType;
   final double price;
   final DateTime timestamp;
+  final String notes;
 
   Customer({
     this.id,
@@ -17,6 +18,7 @@ class Customer {
     required this.vehicleType,
     required this.price,
     required this.timestamp,
+    this.notes = '',
   });
 
   String get formattedPlate {
@@ -71,6 +73,7 @@ class Customer {
       'vehicleType': vehicleType,
       'price': price,
       'timestamp': timestamp.toIso8601String(),
+      'notes': notes,
     };
   }
 
@@ -84,6 +87,7 @@ class Customer {
       vehicleType: map['vehicleType'] as String? ?? 'Normal',
       price: (map['price'] as num?)?.toDouble() ?? 0.0,
       timestamp: DateTime.parse(map['timestamp'] as String),
+      notes: map['notes'] as String? ?? '',
     );
   }
 
@@ -96,6 +100,7 @@ class Customer {
     String? vehicleType,
     double? price,
     DateTime? timestamp,
+    String? notes,
   }) {
     return Customer(
       id: id ?? this.id,
@@ -106,6 +111,7 @@ class Customer {
       vehicleType: vehicleType ?? this.vehicleType,
       price: price ?? this.price,
       timestamp: timestamp ?? this.timestamp,
+      notes: notes ?? this.notes,
     );
   }
 } 

@@ -111,9 +111,18 @@ class _SearchPageState extends State<SearchPage> {
             .replaceAll('ö', 'o')
             .replaceAll('ç', 'c');
         
+        final normalizedNotes = customer.notes.toLowerCase()
+            .replaceAll('ı', 'i')
+            .replaceAll('ğ', 'g')
+            .replaceAll('ü', 'u')
+            .replaceAll('ş', 's')
+            .replaceAll('ö', 'o')
+            .replaceAll('ç', 'c');
+        
         return normalizedName.contains(normalizedQuery) || 
                normalizedPlate.contains(normalizedQuery) ||
-               normalizedPhone.contains(normalizedQuery);
+               normalizedPhone.contains(normalizedQuery) ||
+               normalizedNotes.contains(normalizedQuery);
       }).toList();
     }
     
@@ -176,10 +185,10 @@ class _SearchPageState extends State<SearchPage> {
             padding: const EdgeInsets.all(16.0),
             child: TextField(
               decoration: const InputDecoration(
-                labelText: 'Servis Kaydı Ara (Ad, Plaka veya Telefon)',
+                labelText: 'Servis Kaydı Ara (Ad, Plaka, Telefon veya Not)',
                 prefixIcon: Icon(Icons.search),
                 border: OutlineInputBorder(),
-                hintText: 'Müşteri adı, plaka veya telefon girin...',
+                hintText: 'Müşteri adı, plaka, telefon veya not girin...',
               ),
               onChanged: _filterCustomers,
             ),
@@ -266,6 +275,29 @@ class _SearchPageState extends State<SearchPage> {
                                           ),
                                         ),
                                       ),
+                                      if (customer.notes.isNotEmpty)
+                                        Padding(
+                                          padding: const EdgeInsets.only(top: 4),
+                                          child: Row(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              const Icon(Icons.note, size: 14, color: Colors.orange),
+                                              const SizedBox(width: 4),
+                                              Expanded(
+                                                child: Text(
+                                                  customer.notes,
+                                                  style: const TextStyle(
+                                                    fontSize: 12,
+                                                    color: Colors.orange,
+                                                    fontStyle: FontStyle.italic,
+                                                  ),
+                                                  maxLines: 2,
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
                                     ],
                                   ),
                                   trailing: Row(

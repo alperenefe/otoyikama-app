@@ -258,6 +258,29 @@ class _HomeTabsPageState extends State<HomeTabsPage> with SingleTickerProviderSt
                                           ],
                                         ),
                                       ),
+                                    if (customer.notes.isNotEmpty)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 4),
+                                        child: Row(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            const Icon(Icons.note, size: 14, color: Colors.orange),
+                                            const SizedBox(width: 4),
+                                            Expanded(
+                                              child: Text(
+                                                customer.notes,
+                                                style: const TextStyle(
+                                                  fontSize: 12,
+                                                  color: Colors.orange,
+                                                  fontStyle: FontStyle.italic,
+                                                ),
+                                                maxLines: 2,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
                                   ],
                                 ),
                                 trailing: Row(

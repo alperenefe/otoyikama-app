@@ -28,7 +28,7 @@ class DatabaseService {
     String path = join(await getDatabasesPath(), 'otoyikama.db');
     return await openDatabase(
       path,
-      version: 6,
+      version: 7,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -45,7 +45,8 @@ class DatabaseService {
         serviceType TEXT NOT NULL,
         vehicleType TEXT NOT NULL,
         price REAL NOT NULL,
-        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+        notes TEXT DEFAULT ''
       )
     ''');
 
@@ -159,6 +160,21 @@ class DatabaseService {
         print('✅ Yeni tablolar başarıyla eklendi');
       } catch (e) {
         print('❌ Database upgrade hatası: $e');
+      }
+    }
+    
+    if (oldVersion < 7) {
+      try {
+        print('📝 Customers tablosuna notes alanı ekleniyor...');
+        
+        // Notes alanını ekle
+        await db.execute('''
+          ALTER TABLE customers ADD COLUMN notes TEXT DEFAULT ''
+        ''');
+
+        print('✅ Notes alanı başarıyla eklendi');
+      } catch (e) {
+        print('❌ Notes alanı eklenirken hata: $e');
       }
     }
   }

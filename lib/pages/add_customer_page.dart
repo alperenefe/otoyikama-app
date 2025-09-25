@@ -16,6 +16,7 @@ class _AddCustomerPageState extends State<AddCustomerPage> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _plateController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _notesController = TextEditingController();
   
   String _selectedServiceType = 'İç Yıkama';
   String _selectedVehicleType = 'Normal';
@@ -78,6 +79,7 @@ class _AddCustomerPageState extends State<AddCustomerPage> {
         vehicleType: _selectedVehicleType,
         price: _calculatedPrice,
         timestamp: DateTime.now(),
+        notes: _notesController.text.trim(),
       );
 
       await DatabaseService.insertCustomer(customer);
@@ -129,16 +131,11 @@ class _AddCustomerPageState extends State<AddCustomerPage> {
             TextFormField(
               controller: _nameController,
               decoration: const InputDecoration(
-                labelText: 'Müşteri Adı',
+                labelText: 'Müşteri Adı (Opsiyonel)',
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.person),
+                hintText: 'Müşteri adı giriniz',
               ),
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Müşteri adı gerekli';
-                }
-                return null;
-              },
             ),
             const SizedBox(height: 16),
             TextFormField(
@@ -174,18 +171,12 @@ class _AddCustomerPageState extends State<AddCustomerPage> {
             TextFormField(
               controller: _phoneController,
               decoration: const InputDecoration(
-                labelText: 'Telefon',
+                labelText: 'Telefon (Opsiyonel)',
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.phone),
                 hintText: '0555 123 45 67',
               ),
               keyboardType: TextInputType.phone,
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Telefon gerekli';
-                }
-                return null;
-              },
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
@@ -228,6 +219,18 @@ class _AddCustomerPageState extends State<AddCustomerPage> {
                 });
                 _calculatePrice();
               },
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _notesController,
+              decoration: const InputDecoration(
+                labelText: 'Notlar (Opsiyonel)',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.note),
+                hintText: 'Ek notlarınızı yazabilirsiniz',
+              ),
+              maxLines: 3,
+              textInputAction: TextInputAction.done,
             ),
             const SizedBox(height: 24),
             Container(
@@ -281,6 +284,7 @@ class _AddCustomerPageState extends State<AddCustomerPage> {
     _nameController.dispose();
     _plateController.dispose();
     _phoneController.dispose();
+    _notesController.dispose();
     super.dispose();
   }
 } 

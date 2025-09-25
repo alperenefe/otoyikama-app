@@ -18,6 +18,7 @@ class _EditCustomerPageState extends State<EditCustomerPage> {
   final _nameController = TextEditingController();
   final _plateController = TextEditingController();
   final _phoneController = TextEditingController();
+  final _notesController = TextEditingController();
   
   String _selectedVehicleType = '';
   String _selectedServiceType = '';
@@ -33,6 +34,7 @@ class _EditCustomerPageState extends State<EditCustomerPage> {
     _nameController.text = widget.customer.name;
     _plateController.text = widget.customer.plate;
     _phoneController.text = widget.customer.phone;
+    _notesController.text = widget.customer.notes;
     // Araç tipini güvenli şekilde ayarla
     if (_vehicleTypes.contains(widget.customer.vehicleType)) {
       _selectedVehicleType = widget.customer.vehicleType;
@@ -59,6 +61,7 @@ class _EditCustomerPageState extends State<EditCustomerPage> {
     _nameController.dispose();
     _plateController.dispose();
     _phoneController.dispose();
+    _notesController.dispose();
     super.dispose();
   }
 
@@ -110,6 +113,7 @@ class _EditCustomerPageState extends State<EditCustomerPage> {
         vehicleType: _selectedVehicleType,
         price: _price ?? 0.0,
         timestamp: widget.customer.timestamp,
+        notes: _notesController.text.trim(),
       );
 
       await DatabaseService.updateCustomer(updatedCustomer);
@@ -146,16 +150,11 @@ class _EditCustomerPageState extends State<EditCustomerPage> {
                     TextFormField(
                       controller: _nameController,
                       decoration: const InputDecoration(
-                        labelText: 'Müşteri Adı *',
+                        labelText: 'Müşteri Adı (Opsiyonel)',
                         border: OutlineInputBorder(),
                         prefixIcon: Icon(Icons.person),
+                        hintText: 'Müşteri adı giriniz',
                       ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Müşteri adı gereklidir';
-                        }
-                        return null;
-                      },
                       textInputAction: TextInputAction.next,
                     ),
                     
@@ -184,17 +183,12 @@ class _EditCustomerPageState extends State<EditCustomerPage> {
                     TextFormField(
                       controller: _phoneController,
                       decoration: const InputDecoration(
-                        labelText: 'Telefon *',
+                        labelText: 'Telefon (Opsiyonel)',
                         border: OutlineInputBorder(),
                         prefixIcon: Icon(Icons.phone),
+                        hintText: '0555 123 45 67',
                       ),
                       keyboardType: TextInputType.phone,
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Telefon gereklidir';
-                        }
-                        return null;
-                      },
                       textInputAction: TextInputAction.next,
                     ),
                     
@@ -285,6 +279,21 @@ class _EditCustomerPageState extends State<EditCustomerPage> {
                         }
                         return null;
                       },
+                    ),
+                    
+                    const SizedBox(height: 16),
+                    
+                    // Notlar
+                    TextFormField(
+                      controller: _notesController,
+                      decoration: const InputDecoration(
+                        labelText: 'Notlar (Opsiyonel)',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.note),
+                        hintText: 'Ek notlarınızı yazabilirsiniz',
+                      ),
+                      maxLines: 3,
+                      textInputAction: TextInputAction.done,
                     ),
                     
                     const SizedBox(height: 32),
